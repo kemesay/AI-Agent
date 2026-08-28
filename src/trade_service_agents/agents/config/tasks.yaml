@@ -1,0 +1,95 @@
+invoice_integrity_task:
+  description: >
+    Proforma invoice data (JSON): {invoice_json}
+
+    Use the Score Invoice Integrity tool with this exact JSON string as
+    input to compute the integrity risk score and findings.
+  expected_output: >
+    A JSON object with `score` (integer 0-100) and `findings` (a list of
+    short strings explaining the score).
+  agent: invoice_integrity_agent
+
+supplier_legitimacy_task:
+  description: >
+    Proforma invoice data (JSON): {invoice_json}
+
+    Use the Score Supplier Legitimacy tool with this exact JSON string as
+    input to compute the supplier legitimacy risk score and findings.
+  expected_output: >
+    A JSON object with `score` (integer 0-100) and `findings` (a list of
+    short strings explaining the score).
+  agent: supplier_legitimacy_agent
+
+payment_currency_task:
+  description: >
+    Proforma invoice data (JSON): {invoice_json}
+
+    Use the Score Payment and Currency Risk tool with this exact JSON
+    string as input to compute the payment/currency risk score and
+    findings.
+  expected_output: >
+    A JSON object with `score` (integer 0-100) and `findings` (a list of
+    short strings explaining the score).
+  agent: payment_currency_agent
+
+product_hs_code_task:
+  description: >
+    Proforma invoice data (JSON): {invoice_json}
+
+    Use the Score Product and HS Code Compliance tool with this exact
+    JSON string as input to compute the product/HS code risk score and
+    findings.
+  expected_output: >
+    A JSON object with `score` (integer 0-100) and `findings` (a list of
+    short strings explaining the score).
+  agent: product_hs_code_agent
+
+logistics_incoterms_task:
+  description: >
+    Proforma invoice data (JSON): {invoice_json}
+
+    Use the Score Logistics and Incoterms tool with this exact JSON
+    string as input to compute the logistics/incoterms risk score and
+    findings.
+  expected_output: >
+    A JSON object with `score` (integer 0-100) and `findings` (a list of
+    short strings explaining the score).
+  agent: logistics_incoterms_agent
+
+purpose_validation_task:
+  description: >
+    Proforma invoice data (JSON): {invoice_json}
+
+    Use the Score Purpose Validation tool with this exact JSON string as
+    input to compute the purpose-alignment risk score and findings.
+  expected_output: >
+    A JSON object with `score` (integer 0-100) and `findings` (a list of
+    short strings explaining the score).
+  agent: purpose_validation_agent
+
+risk_aggregation_task:
+  description: >
+    You have been given six independent category risk assessments as
+    context, each a JSON object with `score` and `findings`. Build a
+    single JSON object mapping category name to its integer score, using
+    exactly these keys: invoiceIntegrity, currencyAndPaymentTerms,
+    supplierLegitimacy, bankDetails, productAndHsCode,
+    logisticsAndIncoterms, purposeMatch. The `bankDetails` category is
+    not assessed by any agent in this pipeline — always set it to 0.
+    Then call the Aggregate Risk Score tool with that JSON object
+    (as a JSON string) as input, and return its output unchanged.
+  expected_output: >
+    A JSON object with `finalRiskScore`, `riskCategory`, `decision`, and
+    `categoryBreakdown`.
+  agent: risk_aggregation_agent
+
+executive_summary_task:
+  description: >
+    Using the final risk aggregation result as context, write a clear,
+    professional 2-3 sentence executive summary for a senior
+    decision-maker. State the overall risk level and decision
+    recommendation, and highlight the most critical concern if any.
+    Return only the summary text, with no formatting or markdown.
+  expected_output: >
+    A 2-3 sentence plain-text executive summary.
+  agent: executive_summary_agent
