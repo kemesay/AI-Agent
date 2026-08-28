@@ -1,6 +1,6 @@
 """Orchestrates the full risk assessment: invoice data in, decision-ready response out."""
 
-from typing import Any, Dict
+from typing import Any
 
 from trade_service_agents.agents.crew import RiskAssessmentCrew
 from trade_service_agents.models.invoice import ProformaInvoice
@@ -9,7 +9,7 @@ from trade_service_agents.scoring.aggregation import invoice_anomaly_index
 _HIGH_RISK_FINDING_THRESHOLD = 20
 
 
-async def analyze_proforma(invoice: ProformaInvoice) -> Dict[str, Any]:
+async def analyze_proforma(invoice: ProformaInvoice) -> dict[str, Any]:
     """Run the risk-assessment crew for a single proforma invoice and shape the response."""
     invoice_json = invoice.model_dump_json(by_alias=True)
     result = RiskAssessmentCrew().crew().kickoff(inputs={"invoice_json": invoice_json})

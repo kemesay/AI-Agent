@@ -10,10 +10,14 @@ def score_purpose_validation(data: ProformaInvoice) -> dict:
     score = 0
     findings: list[str] = []
 
-    if data.purpose and data.client_name and data.item_description:
-        if not contains_any(data.item_description, data.purpose.split()):
-            score += 25
-            findings.append("Stated purpose does not clearly correspond to the described goods.")
+    if (
+        data.purpose
+        and data.client_name
+        and data.item_description
+        and not contains_any(data.item_description, data.purpose.split())
+    ):
+        score += 25
+        findings.append("Stated purpose does not clearly correspond to the described goods.")
 
     if data.quantity is not None and data.quantity < MINIMUM_EXPECTED_QUANTITY:
         score += 10

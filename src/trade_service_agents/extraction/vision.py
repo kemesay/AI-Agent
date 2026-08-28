@@ -1,7 +1,7 @@
 """Agent 3 — Multimodal Data Extraction: vision-based structured extraction via Gemini."""
 
 import json
-from typing import Callable, Dict, List
+from collections.abc import Callable
 
 from fastapi import HTTPException, UploadFile
 from google import genai
@@ -22,7 +22,7 @@ def get_client() -> genai.Client:
     return genai.Client(api_key=settings.genai_api_key)
 
 
-def parse_json_response(response_text: str) -> Dict:
+def parse_json_response(response_text: str) -> dict:
     """Strip code fences and parse model output into JSON; return a helpful error on failure."""
     clean_text = response_text.replace("```json", "").replace("```", "").strip()
     try:
@@ -34,9 +34,9 @@ def parse_json_response(response_text: str) -> Dict:
 
 def run_extraction(
     file: UploadFile,
-    prompt_builder: Callable[[Image.Image], List],
+    prompt_builder: Callable[[Image.Image], list],
     client: genai.Client,
-) -> Dict:
+) -> dict:
     """Read an uploaded PDF/image, normalize it to pages, and extract structured JSON."""
     file_bytes = file.file.read()
     if not file_bytes:

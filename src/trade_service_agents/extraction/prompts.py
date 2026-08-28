@@ -1,11 +1,10 @@
 """Prompt templates for the multimodal data extraction agent."""
 
-from typing import List
 
 from PIL import Image
 
 
-def base_extraction_prompt(first_page: Image.Image) -> List:
+def base_extraction_prompt(first_page: Image.Image) -> list:
     return [
         first_page,
         (
@@ -16,7 +15,7 @@ def base_extraction_prompt(first_page: Image.Image) -> List:
     ]
 
 
-def proforma_extraction_prompt(first_page: Image.Image) -> List:
+def proforma_extraction_prompt(first_page: Image.Image) -> list:
     return [
         first_page,
         (
