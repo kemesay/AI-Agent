@@ -1,0 +1,132 @@
+# Trade Service Agents
+
+**Enterprise multi-agent AI platform for proforma invoice extraction, validation, and risk
+assessment.**
+
+![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)
+![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)
+![Framework](https://img.shields.io/badge/agents-CrewAI-6E56CF.svg)
+
+Trade Service Agents automates the review of proforma invoices for foreign exchange and trade
+finance teams. It combines multimodal AI extraction, an 11-agent risk assessment architecture
+built on [CrewAI](https://docs.crewai.com/), and deterministic, auditable scoring logic to
+produce a clear, explainable risk decision for every invoice.
+
+See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full design document, including the
+business context, agent responsibilities, and system architecture diagram.
+
+## Key Features
+
+- **Multimodal extraction** — Google Gemini vision model reads PDF or image invoices into
+  structured JSON.
+- **11-agent risk architecture** — six independent risk-dimension agents (invoice integrity,
+  supplier legitimacy, payment & currency risk, product & HS code compliance, logistics &
+  incoterms, purpose validation) run concurrently, feeding a dedicated aggregation agent and an
+  executive summary agent.
+- **Deterministic, auditable scoring** — every risk number is computed by a pure Python function;
+  agents explain results, they never invent them.
+- **Composable weighting** — category weights and decision thresholds are defined in one place
+  ([`scoring/aggregation.py`](src/trade_service_agents/scoring/aggregation.py)) and easy to tune.
+
+## Architecture at a Glance
+
+```mermaid
+flowchart LR
+    Doc[Proforma Invoice] --> Extract[Multimodal Extraction]
+    Extract --> Crew{{CrewAI Risk Crew}}
+    Crew --> Decision[Risk Score + Decision + Summary]
+```
+
+Full agent-by-agent breakdown and diagram: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+
+## Project Structure
+
+```
+src/trade_service_agents/
+├── core/            # settings, logging
+├── models/          # ProformaInvoice, risk output schemas
+├── extraction/       # Agents 1-3: ingestion, normalization, multimodal extraction
+├── scoring/         # Deterministic risk-scoring functions (Agents 4-10 math)
+├── agents/           # CrewAI crew: agents, tasks, tools, LLM config
+├── services/         # Orchestration: extraction -> crew -> response
+└── api/               # FastAPI app and routes
+tests/
+├── test_scoring/     # Unit tests for the deterministic scoring engine
+└── test_api/         # API tests with the crew/LLM mocked
+```
+
+## Quick Start
+
+### Prerequisites
+
+- Python 3.10–3.13
+- [`poppler-utils`](https://poppler.freedesktop.org/) (required by `pdf2image` for PDF support)
+  ```bash
+  sudo apt-get install poppler-utils   # Debian/Ubuntu
+  brew install poppler                 # macOS
+  ```
+- A Google Gemini API key
+
+### Installation
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+make install        # pip install -e ".[dev]"
+```
+
+### Configuration
+
+```bash
+cp .env.example .env
+# then set GENAI_API_KEY in .env
+```
+
+### Run
+
+```bash
+make run             # uvicorn trade_service_agents.api.app:app --reload
+```
+
+The API is served at `http://localhost:8000`, with interactive docs at `/docs`.
+
+## API Reference
+
+| Method | Endpoint            | Description                                                              |
+|--------|----------------------|----------------------------------------------------------------------------|
+| `GET`  | `/health`            | Liveness check.                                                            |
+| `POST` | `/extract`           | Extract generic invoice fields from an uploaded PDF/image.                |
+| `POST` | `/extract_proforma`  | Extract full structured proforma invoice data from an uploaded PDF/image. |
+| `POST` | `/analyze_proforma`  | Run the full 11-agent risk assessment on structured invoice data.         |
+
+`POST /analyze_proforma` accepts a JSON body matching
+[`ProformaInvoice`](src/trade_service_agents/models/invoice.py) and returns:
+
+```json
+{
+  "summary": "string",
+  "risk": {
+    "finalRiskScore": 0.0,
+    "riskCategory": "Very Low | Low-Medium | Medium-High | High | Critical",
+    "decision": "string",
+    "categoryBreakdown": { "invoiceIntegrity": 0, "...": 0 }
+  },
+  "insights": ["string"],
+  "recommendations": ["string"],
+  "invoiceAnomalyIndex": 0.0
+}
+```
+
+## Testing
+
+```bash
+make test            # pytest
+make lint            # ruff check
+```
+
+Scoring tests run entirely offline against the deterministic functions. API tests mock the
+CrewAI crew and the Gemini client, so the full suite runs without network access or an API key.
+
+## License
+
+Licensed under the [Apache License 2.0](LICENSE).
