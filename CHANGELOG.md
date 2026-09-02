@@ -7,6 +7,16 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Under/over-invoicing price checker for the Product & HS Code Compliance category
+  (`reference_data/customs_prices.py`, `scoring/price_deviation.py`): compares an invoice's
+  declared unit price against an optional, deployment-supplied customs indicative-price
+  reference workbook (`CUSTOMS_PRICE_LIST_PATH`), matched by HS code and description
+  similarity, flagging prices suspiciously below (duty evasion) or above (trade-based
+  money-laundering) the reference. Silently no-ops when unconfigured or no confident match is
+  found — an absent or inapplicable check never reads as a false finding.
+
 ### Changed
 
 - Agents 4-9 (the six risk-dimension analysts) now run as direct Python calls instead of

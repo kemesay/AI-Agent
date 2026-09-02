@@ -19,10 +19,13 @@ business context, agent responsibilities, and system architecture diagram.
 
 - **Multimodal extraction** — Google Gemini vision model reads PDF or image invoices into
   structured JSON.
-- **11-agent risk architecture** — six independent risk-dimension agents (invoice integrity,
+- **11-agent risk architecture** — six deterministic risk-dimension checks (invoice integrity,
   supplier legitimacy, payment & currency risk, product & HS code compliance, logistics &
-  incoterms, purpose validation) run concurrently, feeding a dedicated aggregation agent and an
-  executive summary agent.
+  incoterms, purpose validation) feed a CrewAI aggregation agent and an executive summary agent.
+- **Under/over-invoicing detection** — an optional check compares the declared unit price
+  against a customs commission indicative-price reference table (matched by HS code and
+  description similarity), flagging classic duty-evasion and trade-based money-laundering
+  signals when configured.
 - **Deterministic, auditable scoring** — every risk number is computed by a pure Python function;
   agents explain results, they never invent them.
 - **Composable weighting** — category weights and decision thresholds are defined in one place
@@ -128,6 +131,12 @@ make install        # pip install -e ".[dev]"
 cp .env.example .env
 # then set GENAI_API_KEY in .env
 ```
+
+**Optional — under/over-invoicing detection**: set `CUSTOMS_PRICE_LIST_PATH` in `.env` to the
+path of a customs commission indicative-price workbook (`.xlsx`, columns: HS code, description,
+unit of measure, origin, unit price) to enable price-deviation checks in the Product & HS Code
+Compliance category. This is real-world reference data supplied per deployment — it is not
+part of the repo, and the check silently no-ops (no error, no false finding) when unset.
 
 ### Run
 

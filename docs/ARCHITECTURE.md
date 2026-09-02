@@ -110,7 +110,11 @@ full analysis costs on the order of 3 LLM calls rather than one per agent.
 ### 5.7 Product & HS Code Compliance Agent
 
 - Validates HS codes against product descriptions
-- Detects abnormal pricing patterns
+- Detects under- and over-invoicing by comparing the declared unit price against a customs
+  commission indicative-price reference table, matched by HS code and description similarity
+  (`reference_data/customs_prices.py`, `scoring/price_deviation.py`) — an optional,
+  deployment-supplied dataset (`CUSTOMS_PRICE_LIST_PATH`) that this check silently skips when
+  unconfigured, rather than penalizing an invoice for missing reference data
 - Flags incomplete or vague item information
 
 ### 5.8 Logistics & Incoterms Agent
