@@ -5,6 +5,23 @@ All notable changes to this project are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- Agents 4-9 (the six risk-dimension analysts) now run as direct Python calls instead of
+  CrewAI/LLM agents, cutting a full `/analyze_proforma` analysis from ~15-17 Gemini API calls
+  to ~3 — the deterministic scoring logic was unchanged, only the orchestration layer.
+- Default Gemini model updated after `gemini-2.5-flash` was retired by Google.
+
+### Fixed
+
+- `RiskAssessmentCrew.crew().kickoff()` is now called via `kickoff_async()` from the async
+  FastAPI route, avoiding a crash when CrewAI detects it's already inside a running event loop.
+- A task guardrail's success value must be a raw string, not a `TaskOutput`, for CrewAI to
+  re-run `output_pydantic` conversion — returning the object directly silently skipped
+  conversion, so a correctly tool-called aggregation could still report as unvalidated.
+
 ## [0.1.0] - 2026-08-28
 
 ### Added

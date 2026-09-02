@@ -53,18 +53,22 @@ The final response includes:
 ### Architectural Principles
 
 - **Modularity** — each agent has a single, well-defined responsibility
-- **Parallelism** — the six risk-dimension agents evaluate independently and concurrently
-- **Explainability** — every risk signal is traceable to a specific agent and a deterministic tool
+- **Independence** — the six risk-dimension agents evaluate the invoice independently of one another
+- **Explainability** — every risk signal is traceable to a specific agent and a deterministic function
 - **Extensibility** — new agents can be introduced without redesigning the pipeline
+- **Cost-awareness** — an agent only calls a language model when it genuinely needs one
 
 ### Framework
 
-Agents 4–11 are implemented with **[CrewAI](https://docs.crewai.com/)**, orchestrated as a
-sequential crew in which independent tasks run concurrently and dependent tasks wait on their
-context. Every numerical score is produced by a deterministic Python function exposed to its
-agent as a CrewAI tool — the language model explains and contextualizes a result, it never invents
-one. This keeps the platform's output auditable and reproducible, as required for a compliance
-system.
+Agents 1–9 run as deterministic Python/API calls — document handling, multimodal extraction,
+and all six risk-dimension checks are pure functions with no language-model reasoning involved,
+so none of them can be rate-limited, mis-score an invoice, or consume a scarce API quota. Only
+agents 10 and 11 are implemented with **[CrewAI](https://docs.crewai.com/)**: agent 10 must
+weigh six numbers it did not itself compute (a genuine tool-calling decision), and agent 11
+must produce business prose (a genuine language task). Both call a deterministic Python
+function under the hood where one exists — agent 10 through a CrewAI tool wrapping the same
+aggregation logic — so every numerical output is still auditable and reproducible, while a
+full analysis costs on the order of 3 LLM calls rather than one per agent.
 
 ## 5. Agent Responsibilities and Functional Scope
 
@@ -155,10 +159,18 @@ flowchart TD
     A8 --> A10
     A9 --> A10
 
-    A10 --> A11[Agent 11<br/>AI Executive Summary]
+    subgraph Crew["CrewAI crew — the only two LLM agents"]
+        A10
+        A11[Agent 11<br/>AI Executive Summary]
+    end
+
+    A10 --> A11
     A11 --> Response([Risk Assessment Response])
 
-    subgraph Parallel["Concurrent risk-dimension agents (CrewAI, async_execution)"]
+    subgraph Deterministic["Deterministic Python/API calls — no LLM"]
+        A1
+        A2
+        A3
         A4
         A5
         A6
@@ -168,9 +180,10 @@ flowchart TD
     end
 ```
 
-Agents 4–9 run concurrently as CrewAI tasks with `async_execution=True`; Agent 10 blocks on all
-six via `context`; Agent 11 blocks on Agent 10. Agents 1–2 are pipeline/infrastructure stages,
-and Agent 3 is a direct multimodal model call — both run ahead of the CrewAI crew.
+Agents 1–9 run as direct Python/API calls, not CrewAI agents — document handling, multimodal
+extraction, and every risk-dimension check are pure functions with nothing to rate-limit or
+mis-score. Only agent 10 (weighing six scores it did not compute) and agent 11 (writing the
+summary) go through the CrewAI crew, which keeps a full analysis to roughly 3 LLM calls.
 
 ## 7. Risk Scoring and Decision Framework
 

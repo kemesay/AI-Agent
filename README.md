@@ -31,9 +31,11 @@ business context, agent responsibilities, and system architecture diagram.
 ## Architecture at a Glance
 
 Eleven purpose-built agents move a proforma invoice from raw document to auditable decision.
-Agents 1–3 form a linear ingestion pipeline; agents 4–9 analyze six independent risk dimensions
-**concurrently**; agent 10 waits on all six before computing the final weighted decision; agent 11
-writes the executive summary.
+Agents 1–9 are deterministic — document handling, multimodal extraction, and all six
+risk-dimension checks run as direct Python/API calls, with no LLM round-trip to rate-limit,
+misjudge, or bill for. Only agent 10 (which must weigh six numbers it didn't compute) and
+agent 11 (which writes prose) go through an actual CrewAI/LLM crew — keeping a full analysis
+to about **3 API calls** instead of the 15-17 a naive "one agent per task" design would cost.
 
 ```mermaid
 flowchart TD
@@ -43,50 +45,45 @@ flowchart TD
     A1 --> A2["Agent 2<br/>Document Normalization"]
     A2 --> A3["Agent 3<br/>Multimodal Extraction<br/><i>Gemini Vision</i>"]
 
-    A3 -->|"Structured invoice JSON"| A4
-    A3 --> A5
-    A3 --> A6
-    A3 --> A7
-    A3 --> A8
-    A3 --> A9
+    A3 -->|"Structured invoice JSON"| A4["Agent 4<br/>Invoice Integrity"]
+    A3 --> A5["Agent 5<br/>Supplier Legitimacy"]
+    A3 --> A6["Agent 6<br/>Payment and Currency Risk"]
+    A3 --> A7["Agent 7<br/>Product and HS Code Compliance"]
+    A3 --> A8["Agent 8<br/>Logistics and Incoterms"]
+    A3 --> A9["Agent 9<br/>Purpose Validation"]
 
-    subgraph Crew ["CrewAI Risk Assessment Crew — six agents run concurrently"]
-        A4["Agent 4<br/>Invoice Integrity"]
-        A5["Agent 5<br/>Supplier Legitimacy"]
-        A6["Agent 6<br/>Payment and Currency Risk"]
-        A7["Agent 7<br/>Product and HS Code Compliance"]
-        A8["Agent 8<br/>Logistics and Incoterms"]
-        A9["Agent 9<br/>Purpose Validation"]
-    end
-
-    A4 --> A10["Agent 10<br/>Risk Aggregation and Decision"]
+    A4 --> A10
     A5 --> A10
     A6 --> A10
     A7 --> A10
     A8 --> A10
     A9 --> A10
 
-    A10 --> A11["Agent 11<br/>Executive Summary"]
+    subgraph Crew ["CrewAI Risk-Assessment Crew — the only two LLM agents"]
+        A10["Agent 10<br/>Risk Aggregation and Decision"]
+        A11["Agent 11<br/>Executive Summary"]
+    end
+
+    A10 --> A11
     A11 --> Response(["Risk Score · Decision · Summary"])
 
     classDef pipeline fill:#eef2ff,stroke:#4f46e5,stroke-width:1px,color:#312e81
-    classDef risk fill:#fffbeb,stroke:#d97706,stroke-width:1px,color:#78350f
     classDef decision fill:#ecfdf5,stroke:#059669,stroke-width:1px,color:#064e3b
     classDef boundary fill:#f8fafc,stroke:#94a3b8,stroke-width:1px,color:#334155
 
-    class A1,A2,A3 pipeline
-    class A4,A5,A6,A7,A8,A9 risk
+    class A1,A2,A3,A4,A5,A6,A7,A8,A9 pipeline
     class A10,A11 decision
     class Client,API,Response boundary
 ```
 
-**🟦 Ingestion & extraction pipeline** (direct calls, ahead of the crew) · **🟧 Concurrent
-risk-dimension agents** (CrewAI, `async_execution=True`) · **🟩 Aggregation & summary agents**
-(CrewAI, wait on all upstream context via `context=[...]`)
+**🟦 Deterministic pipeline** (agents 1-9 — pure Python/API calls, no LLM) · **🟩 CrewAI crew**
+(agents 10-11 — the only two that call Gemini, guarded so the aggregation agent can never
+invent its own weighting math)
 
-Every score in the amber and green agents above is computed by a deterministic Python function in
-[`scoring/`](src/trade_service_agents/scoring/), exposed to its agent as a CrewAI tool — the
-language model explains a result, it never invents one. Full agent-by-agent responsibilities:
+Every score above is computed by a pure Python function in
+[`scoring/`](src/trade_service_agents/scoring/); agent 10 calls the same aggregation logic as
+a CrewAI tool so its final decision is still explainable in agent terms, and agent 11 turns
+that decision into a business-readable summary. Full agent-by-agent responsibilities:
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## Project Structure
