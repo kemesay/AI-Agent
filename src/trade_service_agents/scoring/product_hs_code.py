@@ -1,10 +1,14 @@
-"""Agent 7 — Product & HS Code Compliance: HS code alignment and pricing anomalies."""
+"""Agent 7 — Product & HS Code Compliance: HS code alignment with product descriptions.
+
+Pricing anomaly detection (previously a single hardcoded band applied to every invoice
+regardless of what's being imported) has moved to `scoring/price_deviation.py`, which
+compares the declared price against a real customs indicative-price reference table instead
+of one arbitrary global range.
+"""
 
 from trade_service_agents.models.invoice import ProformaInvoice
 
 EXPECTED_STEEL_HS_CODE_PREFIX = "7323"
-EXPECTED_UNIT_PRICE_LOW = 0.7 * 150
-EXPECTED_UNIT_PRICE_HIGH = 1.3 * 180
 
 
 def score_product_hs_code(data: ProformaInvoice) -> dict:
@@ -21,12 +25,6 @@ def score_product_hs_code(data: ProformaInvoice) -> dict:
         findings.append(
             f"HS code '{data.hs_code}' does not match expected classification for steel goods."
         )
-
-    if data.unit_price is not None and (
-        data.unit_price < EXPECTED_UNIT_PRICE_LOW or data.unit_price > EXPECTED_UNIT_PRICE_HIGH
-    ):
-        score += 20
-        findings.append(f"Unit price {data.unit_price} falls outside the expected pricing band.")
 
     if not data.item_description:
         score += 5

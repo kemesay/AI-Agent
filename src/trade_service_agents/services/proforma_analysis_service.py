@@ -15,6 +15,7 @@ from trade_service_agents.scoring.aggregation import invoice_anomaly_index
 from trade_service_agents.scoring.invoice_integrity import score_invoice_integrity
 from trade_service_agents.scoring.logistics_incoterms import score_logistics_incoterms
 from trade_service_agents.scoring.payment_currency import score_payment_currency
+from trade_service_agents.scoring.price_deviation import score_price_deviation
 from trade_service_agents.scoring.product_hs_code import score_product_hs_code
 from trade_service_agents.scoring.purpose_validation import score_purpose_validation
 from trade_service_agents.scoring.supplier_legitimacy import score_supplier_legitimacy
@@ -25,21 +26,30 @@ _AGGREGATION_UNVALIDATED_SUMMARY = (
     "review is required."
 )
 
-# Category key -> deterministic scoring function (agents 4-9). `bankDetails` has no
-# corresponding agent in the 11-agent architecture and is always 0 (see aggregation.py).
+# Category key -> deterministic scoring functions (agents 4-9). A category can run more than
+# one check (e.g. HS/description consistency and customs reference-price deviation both feed
+# `productAndHsCode`) — their scores are summed (capped at 100) and findings concatenated.
+# `bankDetails` has no corresponding agent in the 11-agent architecture and is always 0 (see
+# aggregation.py).
 _CATEGORY_SCORERS = {
-    "invoiceIntegrity": score_invoice_integrity,
-    "currencyAndPaymentTerms": score_payment_currency,
-    "supplierLegitimacy": score_supplier_legitimacy,
-    "productAndHsCode": score_product_hs_code,
-    "logisticsAndIncoterms": score_logistics_incoterms,
-    "purposeMatch": score_purpose_validation,
+    "invoiceIntegrity": [score_invoice_integrity],
+    "currencyAndPaymentTerms": [score_payment_currency],
+    "supplierLegitimacy": [score_supplier_legitimacy],
+    "productAndHsCode": [score_product_hs_code, score_price_deviation],
+    "logisticsAndIncoterms": [score_logistics_incoterms],
+    "purposeMatch": [score_purpose_validation],
 }
 
 
 def _run_category_scoring(invoice: ProformaInvoice) -> dict[str, dict]:
     """Run agents 4-9 as direct function calls, keyed by their aggregation category name."""
-    results = {name: scorer(invoice) for name, scorer in _CATEGORY_SCORERS.items()}
+    results: dict[str, dict] = {}
+    for name, scorers in _CATEGORY_SCORERS.items():
+        sub_results = [scorer(invoice) for scorer in scorers]
+        results[name] = {
+            "score": min(100, sum(r["score"] for r in sub_results)),
+            "findings": [finding for r in sub_results for finding in r["findings"]],
+        }
     results["bankDetails"] = {"score": 0, "findings": []}
     return results
 
