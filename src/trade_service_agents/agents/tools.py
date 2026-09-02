@@ -1,70 +1,17 @@
-"""CrewAI tools exposing the deterministic scoring engine to the risk-assessment agents.
+"""CrewAI tool exposing the deterministic risk-aggregation engine to the aggregation agent.
 
-Every risk number in the platform's final output is computed by these pure functions,
-never by the language model itself — the agents call the tool, then explain the result.
-This keeps the risk assessment auditable and reproducible.
+The six risk-dimension category scores (agents 4-9) are computed directly in Python by
+`services/proforma_analysis_service.py` — no LLM round-trip per category — so the only
+tool-backed CrewAI agent left in the pipeline is the aggregation agent (10). This keeps
+every risk number auditable and cuts the LLM calls needed per invoice from ~15-17 down to
+~3, which matters a great deal against Gemini's free-tier daily request quota.
 """
 
 import json
 
 from crewai.tools import tool
 
-from trade_service_agents.models.invoice import ProformaInvoice
 from trade_service_agents.scoring.aggregation import aggregate_risk
-from trade_service_agents.scoring.invoice_integrity import score_invoice_integrity
-from trade_service_agents.scoring.logistics_incoterms import score_logistics_incoterms
-from trade_service_agents.scoring.payment_currency import score_payment_currency
-from trade_service_agents.scoring.product_hs_code import score_product_hs_code
-from trade_service_agents.scoring.purpose_validation import score_purpose_validation
-from trade_service_agents.scoring.supplier_legitimacy import score_supplier_legitimacy
-
-
-@tool("Score Invoice Integrity")
-def score_invoice_integrity_tool(invoice_json: str) -> str:
-    """Deterministically scores invoice arithmetic, date, and metadata integrity risk (0-100)
-    from a JSON-encoded proforma invoice. Returns JSON: {"score": int, "findings": [str]}."""
-    data = ProformaInvoice.model_validate_json(invoice_json)
-    return json.dumps(score_invoice_integrity(data))
-
-
-@tool("Score Supplier Legitimacy")
-def score_supplier_legitimacy_tool(invoice_json: str) -> str:
-    """Deterministically scores supplier name/address/origin legitimacy risk (0-100)
-    from a JSON-encoded proforma invoice. Returns JSON: {"score": int, "findings": [str]}."""
-    data = ProformaInvoice.model_validate_json(invoice_json)
-    return json.dumps(score_supplier_legitimacy(data))
-
-
-@tool("Score Payment and Currency Risk")
-def score_payment_currency_tool(invoice_json: str) -> str:
-    """Deterministically scores currency/payment-term mismatch and settlement risk (0-100)
-    from a JSON-encoded proforma invoice. Returns JSON: {"score": int, "findings": [str]}."""
-    data = ProformaInvoice.model_validate_json(invoice_json)
-    return json.dumps(score_payment_currency(data))
-
-
-@tool("Score Product and HS Code Compliance")
-def score_product_hs_code_tool(invoice_json: str) -> str:
-    """Deterministically scores HS code alignment and pricing anomaly risk (0-100)
-    from a JSON-encoded proforma invoice. Returns JSON: {"score": int, "findings": [str]}."""
-    data = ProformaInvoice.model_validate_json(invoice_json)
-    return json.dumps(score_product_hs_code(data))
-
-
-@tool("Score Logistics and Incoterms")
-def score_logistics_incoterms_tool(invoice_json: str) -> str:
-    """Deterministically scores incoterm/transport-mode alignment risk (0-100)
-    from a JSON-encoded proforma invoice. Returns JSON: {"score": int, "findings": [str]}."""
-    data = ProformaInvoice.model_validate_json(invoice_json)
-    return json.dumps(score_logistics_incoterms(data))
-
-
-@tool("Score Purpose Validation")
-def score_purpose_validation_tool(invoice_json: str) -> str:
-    """Deterministically scores alignment between stated purpose, goods, and quantities (0-100)
-    from a JSON-encoded proforma invoice. Returns JSON: {"score": int, "findings": [str]}."""
-    data = ProformaInvoice.model_validate_json(invoice_json)
-    return json.dumps(score_purpose_validation(data))
 
 
 @tool("Aggregate Risk Score")

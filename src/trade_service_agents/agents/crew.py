@@ -1,9 +1,12 @@
-"""The risk-assessment crew: agents 4-11 of the multi-agent architecture.
+"""The risk-assessment crew: agents 10-11 of the multi-agent architecture.
 
-Agents 4-9 (the six risk-dimension analysts) run concurrently, agent 10
-(risk aggregation) waits for all six, and agent 11 (executive summary)
-waits for the aggregation result. Agents 1-3 (ingestion, normalization,
-multimodal extraction) run ahead of this crew as ordinary pipeline stages.
+Agents 4-9 (the six risk-dimension analysts) are pure Python — see
+`services/proforma_analysis_service.py` — for the same reason agents 1-3 (ingestion,
+normalization, multimodal extraction) run ahead of this crew: no LLM round-trip is needed
+to run a deterministic function, and every one skipped is a call that can't be rate-limited,
+mis-scored, or burn a scarce free-tier request. Only the aggregation agent (10, which must
+call a tool over six numbers it didn't compute) and the executive summary agent (11, which
+genuinely needs to generate prose) remain real CrewAI/LLM agents.
 """
 
 from typing import Any
@@ -13,17 +16,9 @@ from crewai.project import CrewBase, agent, crew, task
 from crewai.tasks.task_output import TaskOutput
 
 from trade_service_agents.agents.llm import build_gemini_llm
-from trade_service_agents.agents.tools import (
-    aggregate_risk_tool,
-    score_invoice_integrity_tool,
-    score_logistics_incoterms_tool,
-    score_payment_currency_tool,
-    score_product_hs_code_tool,
-    score_purpose_validation_tool,
-    score_supplier_legitimacy_tool,
-)
+from trade_service_agents.agents.tools import aggregate_risk_tool
 from trade_service_agents.core.config import get_settings
-from trade_service_agents.models.risk import CategoryScoreOutput, RiskAggregationOutput
+from trade_service_agents.models.risk import RiskAggregationOutput
 
 
 def _require_tool_usage_guardrail(tool_name: str):
@@ -34,6 +29,11 @@ def _require_tool_usage_guardrail(tool_name: str):
     exists, the guardrail closes over a mutable holder that gets filled in right after the
     `Task` it belongs to is constructed — by the time CrewAI actually calls the guardrail
     (after the agent's first attempt), the holder is already populated.
+
+    On success this must return the raw string (`output.raw`), not the `TaskOutput` object
+    itself: CrewAI only re-runs `output_pydantic` conversion when a guardrail's success value
+    is a string. Returning the `TaskOutput` unchanged is accepted silently but skips that
+    conversion, leaving `.pydantic` permanently `None` even for a perfectly valid answer.
     """
     holder: dict[str, Task] = {}
 
@@ -45,72 +45,20 @@ def _require_tool_usage_guardrail(tool_name: str):
                 "invoice JSON provided in the task and return its raw output — never compute "
                 "or estimate the score yourself."
             )
-        return True, output
+        return True, output.raw
 
     return holder, guardrail
 
 
 @CrewBase
 class RiskAssessmentCrew:
-    """Multi-agent proforma invoice risk assessment crew."""
+    """Risk aggregation and executive-summary crew (agents 10-11)."""
 
     agents_config = "config/agents.yaml"
     tasks_config = "config/tasks.yaml"
 
     def __init__(self) -> None:
         self.llm = build_gemini_llm()
-
-    # -- Agents (4-9): independent risk-dimension analysts --------------
-
-    @agent
-    def invoice_integrity_agent(self) -> Agent:
-        return Agent(
-            config=self.agents_config["invoice_integrity_agent"],
-            tools=[score_invoice_integrity_tool],
-            llm=self.llm,
-        )
-
-    @agent
-    def supplier_legitimacy_agent(self) -> Agent:
-        return Agent(
-            config=self.agents_config["supplier_legitimacy_agent"],
-            tools=[score_supplier_legitimacy_tool],
-            llm=self.llm,
-        )
-
-    @agent
-    def payment_currency_agent(self) -> Agent:
-        return Agent(
-            config=self.agents_config["payment_currency_agent"],
-            tools=[score_payment_currency_tool],
-            llm=self.llm,
-        )
-
-    @agent
-    def product_hs_code_agent(self) -> Agent:
-        return Agent(
-            config=self.agents_config["product_hs_code_agent"],
-            tools=[score_product_hs_code_tool],
-            llm=self.llm,
-        )
-
-    @agent
-    def logistics_incoterms_agent(self) -> Agent:
-        return Agent(
-            config=self.agents_config["logistics_incoterms_agent"],
-            tools=[score_logistics_incoterms_tool],
-            llm=self.llm,
-        )
-
-    @agent
-    def purpose_validation_agent(self) -> Agent:
-        return Agent(
-            config=self.agents_config["purpose_validation_agent"],
-            tools=[score_purpose_validation_tool],
-            llm=self.llm,
-        )
-
-    # -- Agents (10-11): aggregation and summary -------------------------
 
     @agent
     def risk_aggregation_agent(self) -> Agent:
@@ -127,101 +75,11 @@ class RiskAssessmentCrew:
             llm=self.llm,
         )
 
-    # -- Tasks (4-9): run concurrently ------------------------------------
-
-    @task
-    def invoice_integrity_task(self) -> Task:
-        holder, guardrail = _require_tool_usage_guardrail("Score Invoice Integrity")
-        task = Task(
-            config=self.tasks_config["invoice_integrity_task"],
-            output_pydantic=CategoryScoreOutput,
-            async_execution=True,
-            guardrail=guardrail,
-            guardrail_max_retries=1,
-        )
-        holder["task"] = task
-        return task
-
-    @task
-    def supplier_legitimacy_task(self) -> Task:
-        holder, guardrail = _require_tool_usage_guardrail("Score Supplier Legitimacy")
-        task = Task(
-            config=self.tasks_config["supplier_legitimacy_task"],
-            output_pydantic=CategoryScoreOutput,
-            async_execution=True,
-            guardrail=guardrail,
-            guardrail_max_retries=1,
-        )
-        holder["task"] = task
-        return task
-
-    @task
-    def payment_currency_task(self) -> Task:
-        holder, guardrail = _require_tool_usage_guardrail("Score Payment and Currency Risk")
-        task = Task(
-            config=self.tasks_config["payment_currency_task"],
-            output_pydantic=CategoryScoreOutput,
-            async_execution=True,
-            guardrail=guardrail,
-            guardrail_max_retries=1,
-        )
-        holder["task"] = task
-        return task
-
-    @task
-    def product_hs_code_task(self) -> Task:
-        holder, guardrail = _require_tool_usage_guardrail("Score Product and HS Code Compliance")
-        task = Task(
-            config=self.tasks_config["product_hs_code_task"],
-            output_pydantic=CategoryScoreOutput,
-            async_execution=True,
-            guardrail=guardrail,
-            guardrail_max_retries=1,
-        )
-        holder["task"] = task
-        return task
-
-    @task
-    def logistics_incoterms_task(self) -> Task:
-        holder, guardrail = _require_tool_usage_guardrail("Score Logistics and Incoterms")
-        task = Task(
-            config=self.tasks_config["logistics_incoterms_task"],
-            output_pydantic=CategoryScoreOutput,
-            async_execution=True,
-            guardrail=guardrail,
-            guardrail_max_retries=1,
-        )
-        holder["task"] = task
-        return task
-
-    @task
-    def purpose_validation_task(self) -> Task:
-        holder, guardrail = _require_tool_usage_guardrail("Score Purpose Validation")
-        task = Task(
-            config=self.tasks_config["purpose_validation_task"],
-            output_pydantic=CategoryScoreOutput,
-            async_execution=True,
-            guardrail=guardrail,
-            guardrail_max_retries=1,
-        )
-        holder["task"] = task
-        return task
-
-    # -- Tasks (10-11): aggregation waits on all six, summary waits on 10 -
-
     @task
     def risk_aggregation_task(self) -> Task:
         holder, guardrail = _require_tool_usage_guardrail("Aggregate Risk Score")
         task = Task(
             config=self.tasks_config["risk_aggregation_task"],
-            context=[
-                self.invoice_integrity_task(),
-                self.supplier_legitimacy_task(),
-                self.payment_currency_task(),
-                self.product_hs_code_task(),
-                self.logistics_incoterms_task(),
-                self.purpose_validation_task(),
-            ],
             output_pydantic=RiskAggregationOutput,
             guardrail=guardrail,
             guardrail_max_retries=1,
