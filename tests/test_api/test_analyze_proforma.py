@@ -1,5 +1,5 @@
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from fastapi.testclient import TestClient
 
@@ -46,7 +46,9 @@ def test_analyze_proforma_returns_expected_shape():
     with patch(
         "trade_service_agents.services.proforma_analysis_service.RiskAssessmentCrew"
     ) as mock_crew_cls:
-        mock_crew_cls.return_value.crew.return_value.kickoff.return_value = _stub_crew_result()
+        mock_crew_cls.return_value.crew.return_value.kickoff_async = AsyncMock(
+            return_value=_stub_crew_result()
+        )
 
         response = client.post(
             "/analyze_proforma",
@@ -60,3 +62,69 @@ def test_analyze_proforma_returns_expected_shape():
     assert body["risk"]["decision"] == "Auto-approve"
     assert "Supplier address contains non-commercial/residential indicators." in body["recommendations"]
     assert body["invoiceAnomalyIndex"] == 2.5
+
+
+def test_analyze_proforma_surfaces_unvalidated_category_instead_of_crashing():
+    category_outputs = [
+        SimpleNamespace(pydantic=None),  # agent never called its tool, guardrail retry exhausted
+        _stub_task_output(0, ["Supplier address appears standard."]),
+        _stub_task_output(0, ["Currency and payment term align."]),
+        _stub_task_output(0, ["HS code and pricing appear consistent."]),
+        _stub_task_output(0, ["Logistics details are consistent."]),
+        _stub_task_output(0, ["Purpose and goods are consistent."]),
+    ]
+    aggregation_output = SimpleNamespace(
+        pydantic=RiskAggregationOutput(
+            finalRiskScore=2.0,
+            riskCategory="Very Low",
+            decision="Auto-approve",
+            categoryBreakdown={"invoiceIntegrity": 0},
+        )
+    )
+    summary_output = SimpleNamespace(raw="Low risk overall.")
+    crew_result = SimpleNamespace(tasks_output=[*category_outputs, aggregation_output, summary_output])
+
+    with patch(
+        "trade_service_agents.services.proforma_analysis_service.RiskAssessmentCrew"
+    ) as mock_crew_cls:
+        mock_crew_cls.return_value.crew.return_value.kickoff_async = AsyncMock(
+            return_value=crew_result
+        )
+
+        response = client.post(
+            "/analyze_proforma",
+            json={"supplierName": "Acme Ltd", "currency": "USD"},
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    unvalidated_notice = "requires manual review"
+    assert any(unvalidated_notice in finding for finding in body["insights"])
+    assert any(unvalidated_notice in finding for finding in body["recommendations"])
+
+
+def test_analyze_proforma_flags_unvalidated_aggregation_instead_of_crashing():
+    category_outputs = [
+        _stub_task_output(0, ["Invoice totals are consistent."]) for _ in range(6)
+    ]
+    aggregation_output = SimpleNamespace(pydantic=None)  # aggregation guardrail retry exhausted
+    summary_output = SimpleNamespace(raw="Unused because aggregation was not validated.")
+    crew_result = SimpleNamespace(tasks_output=[*category_outputs, aggregation_output, summary_output])
+
+    with patch(
+        "trade_service_agents.services.proforma_analysis_service.RiskAssessmentCrew"
+    ) as mock_crew_cls:
+        mock_crew_cls.return_value.crew.return_value.kickoff_async = AsyncMock(
+            return_value=crew_result
+        )
+
+        response = client.post(
+            "/analyze_proforma",
+            json={"supplierName": "Acme Ltd", "currency": "USD"},
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["risk"]["decision"] == "Manual review required"
+    assert body["risk"]["finalRiskScore"] is None
+    assert body["invoiceAnomalyIndex"] is None
