@@ -30,3 +30,6 @@ htmlcov/
 
 # OS
 .DS_Store
+
+# Sample/real invoice documents used for local testing — never commit real customer data
+/files
