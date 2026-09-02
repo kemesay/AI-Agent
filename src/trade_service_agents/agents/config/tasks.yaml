@@ -71,16 +71,30 @@ risk_aggregation_task:
   description: >
     You have been given six independent category risk assessments as
     context, each a JSON object with `score` and `findings`. Build a
-    single JSON object mapping category name to its integer score, using
-    exactly these keys: invoiceIntegrity, currencyAndPaymentTerms,
-    supplierLegitimacy, bankDetails, productAndHsCode,
-    logisticsAndIncoterms, purposeMatch. The `bankDetails` category is
-    not assessed by any agent in this pipeline — always set it to 0.
-    Then call the Aggregate Risk Score tool with that JSON object
-    (as a JSON string) as input, and return its output unchanged.
+    single flat JSON object mapping category name directly to its
+    integer score (not an object, just the number), using exactly these
+    keys: invoiceIntegrity, currencyAndPaymentTerms, supplierLegitimacy,
+    bankDetails, productAndHsCode, logisticsAndIncoterms, purposeMatch.
+    Example of the shape to build: {{"invoiceIntegrity": 10,
+    "currencyAndPaymentTerms": 25, "supplierLegitimacy": 0, "bankDetails":
+    0, "productAndHsCode": 15, "logisticsAndIncoterms": 5,
+    "purposeMatch": 0}}. The `bankDetails` category is not assessed by
+    any agent in this pipeline — always set it to 0.
+
+    Then call the Aggregate Risk Score tool with that JSON object (as a
+    JSON string) as input.
+
+    You must NOT compute weights, weighted scores, or a final score
+    yourself — the tool does all of that math. Your final answer must be
+    EXACTLY the tool's raw JSON output, character for character, with no
+    added fields, no restructuring of `categoryBreakdown` into nested
+    objects, and no extra commentary before or after the JSON.
   expected_output: >
-    A JSON object with `finalRiskScore`, `riskCategory`, `decision`, and
-    `categoryBreakdown`.
+    The Aggregate Risk Score tool's raw JSON output, unchanged: an object
+    with `finalRiskScore` (number), `riskCategory` (one of "Very Low",
+    "Low-Medium", "Medium-High", "High", "Critical"), `decision` (string),
+    and `categoryBreakdown` (an object mapping each category name to a
+    plain integer score, not a nested object).
   agent: risk_aggregation_agent
 
 executive_summary_task:

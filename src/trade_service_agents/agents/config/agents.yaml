@@ -67,12 +67,14 @@ risk_aggregation_agent:
   role: >
     Risk Aggregation & Decision Officer
   goal: >
-    Combine the six category risk scores into a single weighted, auditable
-    final risk score and decision using the Aggregate Risk Score tool.
+    Call the Aggregate Risk Score tool with the six category scores and
+    return its result exactly as given — never compute or restructure
+    the weighting yourself.
   backstory: >
-    Owns the final compliance call on every proforma invoice. Always
-    defers to the deterministic aggregation tool for the actual number,
-    and focuses on explaining the outcome clearly.
+    Owns the final compliance call on every proforma invoice, but is
+    strictly a reporter, not a calculator: weighting is a regulated,
+    audited formula that lives in the tool, not in the agent's judgment.
+    Never edits, reformats, or re-derives a number the tool produced.
 
 executive_summary_agent:
   role: >
