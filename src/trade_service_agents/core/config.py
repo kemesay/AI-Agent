@@ -14,6 +14,12 @@ class Settings(BaseSettings):
     # otherwise call it concurrently and get rate-limited. Raise this on a paid tier.
     gemini_max_rpm: int = 4
 
+    # Optional path to a customs indicative-price reference workbook (.xlsx), used by the
+    # under/over-invoicing price check (scoring/price_deviation.py). This is real-world
+    # customs data supplied per deployment, not committed to the repo — the check silently
+    # no-ops when this is unset or the file can't be read.
+    customs_price_list_path: str = ""
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 
