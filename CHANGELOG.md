@@ -11,11 +11,13 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 - Under/over-invoicing price checker for the Product & HS Code Compliance category
   (`reference_data/customs_prices.py`, `scoring/price_deviation.py`): compares an invoice's
-  declared unit price against an optional, deployment-supplied customs indicative-price
-  reference workbook (`CUSTOMS_PRICE_LIST_PATH`), matched by HS code and description
-  similarity, flagging prices suspiciously below (duty evasion) or above (trade-based
-  money-laundering) the reference. Silently no-ops when unconfigured or no confident match is
-  found — an absent or inapplicable check never reads as a false finding.
+  declared unit price against a bundled customs indicative-price reference workbook
+  (overridable via `CUSTOMS_PRICE_LIST_PATH`), matched by HS code and description similarity,
+  flagging prices suspiciously below (duty evasion) or above (trade-based money-laundering)
+  the reference. Works with zero deployment setup — the workbook ships with the package — and
+  silently no-ops if no confident match is found, so it never reads as a false finding.
+- Docker Compose deployment (`docker-compose.yml`): `docker compose up -d --build` builds and
+  runs the service, exposing it on a configurable `HOST_PORT` (default 8050).
 
 ### Changed
 

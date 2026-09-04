@@ -112,9 +112,10 @@ full analysis costs on the order of 3 LLM calls rather than one per agent.
 - Validates HS codes against product descriptions
 - Detects under- and over-invoicing by comparing the declared unit price against a customs
   commission indicative-price reference table, matched by HS code and description similarity
-  (`reference_data/customs_prices.py`, `scoring/price_deviation.py`) — an optional,
-  deployment-supplied dataset (`CUSTOMS_PRICE_LIST_PATH`) that this check silently skips when
-  unconfigured, rather than penalizing an invoice for missing reference data
+  (`reference_data/customs_prices.py`, `scoring/price_deviation.py`) — the reference workbook
+  ships with the package, so this works with no deployment setup; `CUSTOMS_PRICE_LIST_PATH`
+  can override it, and the check silently skips rather than penalizing an invoice if no
+  confident match is found
 - Flags incomplete or vague item information
 
 ### 5.8 Logistics & Incoterms Agent

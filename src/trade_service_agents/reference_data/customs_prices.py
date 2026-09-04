@@ -1,7 +1,9 @@
 """Loads and queries the customs indicative-price reference table (supports Agent 7).
 
-The reference workbook is real-world customs data supplied per deployment via the
-`CUSTOMS_PRICE_LIST_PATH` setting — it is not committed to the repo. Only the workbook's
+The reference workbook is public customs-commission indicative pricing, bundled with the
+package at `data/customs_indicative_prices.xlsx` (see `core/config.py`'s default) so the
+check works with no deployment setup; `CUSTOMS_PRICE_LIST_PATH` can override it with an
+updated or replacement price list without rebuilding. Only the workbook's
 first sheet ("selected Indicative price") is used; a second sheet in the source file is a
 redundant detail-view duplicate of a subset of the first sheet's rows. The raw sheet is
 messy — embedded section-divider rows (e.g. "FURNITURE", "ELECTRONICS", "METAL"), embedded

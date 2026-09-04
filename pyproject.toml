@@ -40,7 +40,7 @@ dev = [
 where = ["src"]
 
 [tool.setuptools.package-data]
-trade_service_agents = ["agents/config/*.yaml"]
+trade_service_agents = ["agents/config/*.yaml", "data/*.xlsx"]
 
 [tool.ruff]
 line-length = 100

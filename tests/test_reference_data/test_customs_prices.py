@@ -1,11 +1,20 @@
 import openpyxl
 import pytest
 
+from trade_service_agents.core.config import _DEFAULT_CUSTOMS_PRICE_LIST_PATH
 from trade_service_agents.reference_data.customs_prices import (
     ReferencePriceRecord,
     find_reference_price,
     load_customs_price_list,
 )
+
+
+def test_bundled_default_price_list_loads_successfully():
+    """Regression guard: catches packaging mistakes (e.g. forgetting package-data) that would
+    silently degrade this to a no-op in a real deployment."""
+    records = load_customs_price_list(_DEFAULT_CUSTOMS_PRICE_LIST_PATH)
+    assert len(records) > 1000
+    assert all(isinstance(r.hs_code, int) and r.description for r in records)
 
 
 @pytest.fixture

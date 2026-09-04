@@ -132,11 +132,12 @@ cp .env.example .env
 # then set GENAI_API_KEY in .env
 ```
 
-**Optional — under/over-invoicing detection**: set `CUSTOMS_PRICE_LIST_PATH` in `.env` to the
-path of a customs commission indicative-price workbook (`.xlsx`, columns: HS code, description,
-unit of measure, origin, unit price) to enable price-deviation checks in the Product & HS Code
-Compliance category. This is real-world reference data supplied per deployment — it is not
-part of the repo, and the check silently no-ops (no error, no false finding) when unset.
+**Under/over-invoicing detection** works out of the box — a customs commission indicative-price
+workbook ships with the package and is used automatically to flag prices that deviate
+suspiciously from the reference in the Product & HS Code Compliance category. Set
+`CUSTOMS_PRICE_LIST_PATH` in `.env` only if you want to override it with an updated or
+different price list (`.xlsx`, columns: HS code, description, unit of measure, origin, unit
+price); the check silently no-ops rather than erroring if the configured file can't be read.
 
 ### Run
 
@@ -152,20 +153,19 @@ The API is served at `http://localhost:8000`, with interactive docs at `/docs`.
 git clone git@github.com:CoopDxValley/trade-service-agents.git
 cd trade-service-agents
 cp .env.example .env
-# edit .env: set GENAI_API_KEY, and optionally HOST_PORT (default 8050) and
-# CUSTOMS_PRICE_LIST_HOST_PATH (absolute path on this host to the real customs
-# indicative-price workbook, if you want under/over-invoicing detection enabled)
+# edit .env: set GENAI_API_KEY (HOST_PORT already defaults to 8050)
 
 docker compose up -d --build
 ```
 
-The API is then served at `http://<this-host>:8050` (or whatever `HOST_PORT` you set),
-with interactive docs at `http://<this-host>:8050/docs`.
+That's it — nothing else to configure or copy onto the server. The API is served at
+`http://<this-host>:8050` (or whatever `HOST_PORT` you set), with interactive docs at
+`http://<this-host>:8050/docs`.
 
 - `docker-compose.yml` builds the image from the repo's `Dockerfile`, maps `HOST_PORT` to
-  the container's internal port 8000, loads all other settings from `.env`, and — if
-  `CUSTOMS_PRICE_LIST_HOST_PATH` is set — mounts that file read-only into the container so
-  the price-deviation check has real data to compare against.
+  the container's internal port 8000, and loads all other settings from `.env`. The customs
+  reference-price workbook ships inside the image, so under/over-invoicing detection works
+  immediately with no separate file to place on the host.
 - To update after a `git pull`: `docker compose up -d --build` again (rebuilds only if
   something changed).
 - Logs: `docker compose logs -f`. Stop: `docker compose down`.

@@ -8,9 +8,7 @@ services:
       - "${HOST_PORT:-8050}:8000"
     env_file:
       - .env
-    environment:
-      # Overrides whatever CUSTOMS_PRICE_LIST_PATH is set to in .env: inside the container
-      # the reference workbook only ever lives at this mounted path (see the volume below).
-      CUSTOMS_PRICE_LIST_PATH: /data/customs_price_list.xlsx
-    volumes:
-      - ${CUSTOMS_PRICE_LIST_HOST_PATH:-/dev/null}:/data/customs_price_list.xlsx:ro
+    # The customs indicative-price reference workbook ships inside the image (see
+    # core/config.py's default), so no volume mount is needed out of the box. To use an
+    # updated/replacement price list without rebuilding, set CUSTOMS_PRICE_LIST_PATH in .env
+    # to a container-internal path and uncomment a matching bind mount here.
