@@ -1,0 +1,16 @@
+services:
+  api:
+    build: .
+    image: trade-service-agents:latest
+    container_name: trade-service-agents
+    restart: unless-stopped
+    ports:
+      - "${HOST_PORT:-8050}:8000"
+    env_file:
+      - .env
+    environment:
+      # Overrides whatever CUSTOMS_PRICE_LIST_PATH is set to in .env: inside the container
+      # the reference workbook only ever lives at this mounted path (see the volume below).
+      CUSTOMS_PRICE_LIST_PATH: /data/customs_price_list.xlsx
+    volumes:
+      - ${CUSTOMS_PRICE_LIST_HOST_PATH:-/dev/null}:/data/customs_price_list.xlsx:ro
